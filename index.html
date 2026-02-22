@@ -8,46 +8,51 @@
 
 <h1>Victoria Conditions</h1>
 
-<h2>Fire Danger & Emergency Warnings</h2>
-<div id="warnings">Loading warnings...</div>
+<h2>Fire Danger Rating</h2>
+<div id="fdr">Loading...</div>
+
+<h2>Emergency Warnings</h2>
+<div id="warnings">Loading...</div>
 
 <h2>Current Weather</h2>
-<div id="weather">Loading weather...</div>
+<div id="current">Loading...</div>
+
+<h2>3 Day Forecast</h2>
+<div id="forecast">Loading...</div>
 
 <script>
 
-// ==========================
-// CHANGE THESE TO YOUR AREA
-// ==========================
+// ============================
+// SET YOUR LOCATION
+// ============================
+// Example: Melbourne
+const lat = -37.8136;
+const lon = 144.9631;
 
-// Example: Melbourne coordinates
-// Replace with your usual bush coordinates
-const latitude = -37.8136;
-const longitude = 144.9631;
-
-
-// ==========================
-// WEATHER (Open-Meteo)
-// ==========================
-fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`)
-  .then(response => response.json())
+// ============================
+// FIRE DANGER (VicEmergency)
+// ============================
+fetch("https://data.emergency.vic.gov.au/public/total-fire-ban-and-rating.json")
+  .then(r => r.json())
   .then(data => {
-    const w = data.current_weather;
-    document.getElementById("weather").innerHTML =
-      "Temp: " + w.temperature + "°C<br>" +
-      "Wind: " + w.windspeed + " km/h<br>" +
-      "Wind Dir: " + w.winddirection + "°";
+    if (data && data.length > 0) {
+      const today = data[0];
+      document.getElementById("fdr").innerText =
+        today.fireDangerRating + 
+        (today.totalFireBan ? " (Total Fire Ban)" : "");
+    } else {
+      document.getElementById("fdr").innerText = "Unavailable";
+    }
   })
   .catch(() => {
-    document.getElementById("weather").innerText = "Weather unavailable";
+    document.getElementById("fdr").innerText = "Unavailable";
   });
 
-
-// ==========================
-// VIC EMERGENCY WARNINGS
-// ==========================
+// ============================
+// WARNINGS (VicEmergency)
+// ============================
 fetch("https://data.emergency.vic.gov.au/public/events-geojson.json")
-  .then(response => response.json())
+  .then(r => r.json())
   .then(data => {
 
     const active = data.features
@@ -58,23 +63,55 @@ fetch("https://data.emergency.vic.gov.au/public/events-geojson.json")
       .slice(0,5);
 
     if (active.length === 0) {
-      document.getElementById("warnings").innerText = "No Emergency or Watch & Act warnings.";
+      document.getElementById("warnings").innerText =
+        "No Emergency or Watch & Act warnings.";
     } else {
       document.getElementById("warnings").innerHTML =
         active.map(f =>
-          "<strong>" + f.properties.category1 + "</strong>: " +
+          f.properties.category1 + ": " +
           f.properties.incidentName + "<br>"
         ).join("");
     }
+
   })
   .catch(() => {
-    document.getElementById("warnings").innerText = "Warnings unavailable";
+    document.getElementById("warnings").innerText = "Unavailable";
   });
 
+// ============================
+// WEATHER + 3 DAY FORECAST
+// ============================
+fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=3&timezone=auto`)
+  .then(r => r.json())
+  .then(data => {
 
-// ==========================
-// Auto refresh every 10 mins
-// ==========================
+    // Current
+    const c = data.current_weather;
+    document.getElementById("current").innerText =
+      "Temp: " + c.temperature + "°C | Wind: " +
+      c.windspeed + " km/h";
+
+    // 3 Day Forecast
+    const d = data.daily;
+    let output = "";
+
+    for (let i = 0; i < 3; i++) {
+      output +=
+        d.time[i] + " | " +
+        d.temperature_2m_min[i] + "°-" +
+        d.temperature_2m_max[i] + "° | Rain: " +
+        d.precipitation_probability_max[i] + "%<br>";
+    }
+
+    document.getElementById("forecast").innerHTML = output;
+
+  })
+  .catch(() => {
+    document.getElementById("current").innerText = "Unavailable";
+    document.getElementById("forecast").innerText = "Unavailable";
+  });
+
+// Auto refresh every 10 minutes
 setTimeout(() => location.reload(), 600000);
 
 </script>
