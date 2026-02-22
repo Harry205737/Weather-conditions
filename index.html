@@ -8,110 +8,86 @@
 
 <h1>Victoria Conditions</h1>
 
-<h2>Fire Danger Rating</h2>
-<div id="fdr">Loading...</div>
+<h2>Fire Danger Ratings (BOM)</h2>
+<div id="fdr">Loading fire danger ratings...</div>
 
-<h2>Emergency Warnings</h2>
-<div id="warnings">Loading...</div>
+<h2>Emergency & Watch/Act Warnings</h2>
+<div id="warnings">Loading warnings...</div>
 
 <h2>Current Weather</h2>
-<div id="current">Loading...</div>
+<div id="weather">Loading weather...</div>
 
 <h2>3 Day Forecast</h2>
-<div id="forecast">Loading...</div>
+<div id="forecast">Loading forecast...</div>
 
 <script>
 
-// ============================
-// SET YOUR LOCATION
-// ============================
-// Example: Melbourne
+// ------------------------------
+// REPLACE WITH YOUR LOCATION
+// ------------------------------
 const lat = -37.8136;
 const lon = 144.9631;
 
-// ============================
-// FIRE DANGER (VicEmergency)
-// ============================
-fetch("https://data.emergency.vic.gov.au/public/total-fire-ban-and-rating.json")
-  .then(r => r.json())
-  .then(data => {
-    if (data && data.length > 0) {
-      const today = data[0];
-      document.getElementById("fdr").innerText =
-        today.fireDangerRating + 
-        (today.totalFireBan ? " (Total Fire Ban)" : "");
+// ===== FIRE DANGER RATINGS (BOM TEXT SCRAPE) =====
+fetch("https://corsproxy.io/?https://www.bom.gov.au/vic/forecasts/fire-danger-ratings.shtml")
+  .then(r => r.text())
+  .then(text => {
+    // Very simple extraction of ratings lines (approx)
+    // Finds table rows with district info
+    const matches = text.match(/(Central|East Gippsland|Mallee|North Central|North East|Northern Country|South West|West and South Gippsland|Wimmera)[^<]*/g);
+    if (matches) {
+      document.getElementById("fdr").innerHTML = matches.join("<br>");
     } else {
-      document.getElementById("fdr").innerText = "Unavailable";
+      document.getElementById("fdr").innerText = "No fire danger ratings found";
     }
   })
   .catch(() => {
-    document.getElementById("fdr").innerText = "Unavailable";
+    document.getElementById("fdr").innerText = "Unable to load fire danger ratings";
   });
 
-// ============================
-// WARNINGS (VicEmergency)
-// ============================
+// ===== EMERGENCY WARNINGS (VicEmergency) =====
 fetch("https://data.emergency.vic.gov.au/public/events-geojson.json")
   .then(r => r.json())
   .then(data => {
-
-    const active = data.features
-      .filter(f =>
-        f.properties.category1 === "Emergency Warning" ||
-        f.properties.category1 === "Watch and Act"
-      )
-      .slice(0,5);
-
-    if (active.length === 0) {
-      document.getElementById("warnings").innerText =
-        "No Emergency or Watch & Act warnings.";
+    const incidents = data.features
+      .filter(f => f.properties.category1 === "Emergency Warning" || f.properties.category1 === "Watch and Act")
+      .slice(0, 5);
+    if (incidents.length === 0) {
+      document.getElementById("warnings").innerText = "None";
     } else {
-      document.getElementById("warnings").innerHTML =
-        active.map(f =>
-          f.properties.category1 + ": " +
-          f.properties.incidentName + "<br>"
-        ).join("");
+      document.getElementById("warnings").innerHTML = incidents
+        .map(i => i.properties.category1 + ": " + i.properties.incidentName)
+        .join("<br>");
     }
-
   })
   .catch(() => {
     document.getElementById("warnings").innerText = "Unavailable";
   });
 
-// ============================
-// WEATHER + 3 DAY FORECAST
-// ============================
+// ===== WEATHER & 3 DAY FORECAST (Open-Meteo) =====
 fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=3&timezone=auto`)
   .then(r => r.json())
   .then(data => {
-
-    // Current
     const c = data.current_weather;
-    document.getElementById("current").innerText =
-      "Temp: " + c.temperature + "°C | Wind: " +
-      c.windspeed + " km/h";
+    document.getElementById("weather").innerText =
+      "Temp: " + c.temperature + "°C | Wind: " + c.windspeed + " km/h";
 
-    // 3 Day Forecast
     const d = data.daily;
-    let output = "";
-
+    let html = "";
     for (let i = 0; i < 3; i++) {
-      output +=
-        d.time[i] + " | " +
-        d.temperature_2m_min[i] + "°-" +
-        d.temperature_2m_max[i] + "° | Rain: " +
-        d.precipitation_probability_max[i] + "%<br>";
+      html += d.time[i] + ": " +
+              d.temperature_2m_min[i] + "°-" +
+              d.temperature_2m_max[i] + "° | Rain: " +
+              d.precipitation_probability_max[i] + "%<br>";
     }
-
-    document.getElementById("forecast").innerHTML = output;
-
+    document.getElementById("forecast").innerHTML = html;
   })
   .catch(() => {
-    document.getElementById("current").innerText = "Unavailable";
+    document.getElementById("weather").innerText = "Unavailable";
     document.getElementById("forecast").innerText = "Unavailable";
   });
 
-// Auto refresh every 10 minutes
+// Refresh every 10 mins
 setTimeout(() => location.reload(), 600000);
 
 </script>
