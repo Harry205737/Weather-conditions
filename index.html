@@ -2,15 +2,24 @@
 <html>
 <head><title>LiteWeather</title></head>
 <body>
-  <strong>3-Day Forecast</strong>
-  <p id="m">Locating...</p>
+  <strong>3-Day Forecast</strong><br>
+  
+  <input type="text" id="lt" placeholder="Lat (e.g. -37.58)" size="12">
+  <input type="text" id="lg" placeholder="Lon (e.g. 144.72)" size="12">
+  <button onclick="getW()">Go</button>
+  <button onclick="nav()">GPS</button>
+  <hr>
+  
+  <p id="m">Enter coords or tap GPS</p>
   
   <table border="1" cellpadding="5" style="border-collapse: collapse;">
     <thead>
       <tr>
         <th>Date</th>
-        <th>Conditions</th>
-        <th>High / Low</th>
+        <th>Cond.</th>
+        <th>H/L</th>
+        <th>mm</th>
+        <th>%</th>
       </tr>
     </thead>
     <tbody id="o"></tbody>
@@ -18,39 +27,48 @@
 
   <script>
     const m=document.getElementById('m'), o=document.getElementById('o');
-    
+    const latIn=document.getElementById('lt'), lonIn=document.getElementById('lg');
+
     const W=(c)=>{
-      const s={
-        0:'Clear sky', 1:'Mainly clear', 2:'Partly cloudy', 3:'Overcast',
-        45:'Fog', 48:'Rime fog', 51:'Light drizzle', 53:'Mod. drizzle',
-        55:'Dense drizzle', 61:'Slight rain', 63:'Mod. rain', 65:'Heavy rain',
-        71:'Slight snow', 73:'Mod. snow', 75:'Heavy snow', 77:'Snow grains',
-        80:'Slight showers', 81:'Mod. showers', 82:'Violent showers',
-        95:'Thunderstorm', 96:'Storm + hail'
-      };
-      return s[c] || 'Code '+c;
+      const s={0:'Clear',1:'Mainly clear',2:'Partly cloudy',3:'Overcast',45:'Fog',51:'Drizzle',61:'Slight rain',63:'Mod. rain',65:'Heavy rain',71:'Slight snow',95:'Storm'};
+      return s[c]||'Code '+c;
     };
 
-    navigator.geolocation.getCurrentPosition(async(p)=>{
+    // Auto-locate function
+    function nav() {
+      m.innerText='Locating...';
+      navigator.geolocation.getCurrentPosition(p=>{
+        latIn.value=p.coords.latitude.toFixed(2);
+        lonIn.value=p.coords.longitude.toFixed(2);
+        getW();
+      }, ()=>m.innerText='GPS denied.');
+    }
+
+    // Main fetch function
+    async function getW() {
+      const lt=latIn.value, lg=lonIn.value;
+      if(!lt || !lg) { m.innerText='Need Lat/Lon'; return; }
+      
       try {
-        const {latitude:lt,longitude:lg}=p.coords;
-        m.innerText=`Lat: ${lt.toFixed(2)}, Lon: ${lg.toFixed(2)}`;
-        const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lt}&longitude=${lg}&daily=weathercode,temperature_2m_max,temperature_2m_min&forecast_days=3&timezone=auto`);
+        m.innerText=`Fetching: ${lt}, ${lg}`;
+        const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lt}&longitude=${lg}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max&forecast_days=3&timezone=auto`);
         const d=await r.json();
         
+        o.innerHTML=''; // Clear old data
         d.daily.time.forEach((t,i)=>{
-          const parts = t.split('-'); // [YYYY, MM, DD]
-          const dateDM = `${parts[2]}/${parts[1]}`; // DD/MM
-          
+          const pts = t.split('-');
           const row = o.insertRow();
           row.innerHTML = `
-            <td>${dateDM}</td>
+            <td>${pts[2]}/${pts[1]}</td>
             <td>${W(d.daily.weathercode[i])}</td>
-            <td>${Math.round(d.daily.temperature_2m_max[i])}° / ${Math.round(d.daily.temperature_2m_min[i])}°</td>
+            <td>${Math.round(d.daily.temperature_2m_max[i])}°/${Math.round(d.daily.temperature_2m_min[i])}°</td>
+            <td>${d.daily.precipitation_sum[i]}mm</td>
+            <td>${d.daily.precipitation_probability_max[i]}%</td>
           `;
         });
+        m.innerText='Updated.';
       } catch(e){m.innerText='Sync error.';}
-    }, ()=>m.innerText='GPS denied.');
+    }
   </script>
 </body>
 </html>
