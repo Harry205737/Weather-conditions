@@ -1,1 +1,15 @@
-<!DOCTYPE html><title>W</title><strong>3-Day</strong><br><input id=a placeholder=Lat size=5><input id=b placeholder=Lon size=5><button onclick=g()>Go</button><button onclick=n()>GPS</button><p id=m></p><table border=1 style=border-collapse:collapse><tbody id=o></tbody></table><script>d=document,m=d.getElementById('m'),o=d.getElementById('o'),a=d.getElementById('a'),b=d.getElementById('b'),W=c=>{s={0:'Clear',1:'Clear',2:'P.Cloud',3:'Overcast',45:'Fog',51:'Drizzle',61:'Rain',63:'Rain',65:'H.Rain',71:'Snow',95:'Storm'};return s[c]||'C'+c};function n(){m.innerText='...';navigator.geolocation.getCurrentPosition(p=>{a.value=p.coords.latitude.toFixed(2);b.value=p.coords.longitude.toFixed(2);g()},()=>m.innerText='X')}async function g(){x=a.value,y=b.value;if(!x||!y)return;try{m.innerText='...';r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${x}&longitude=${y}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max&forecast_days=3&timezone=auto`),j=await r.json();o.innerHTML='';j.daily.time.forEach((t,i)=>{p=t.split('-'),r=o.insertRow();r.innerHTML=`<td>${p[2]}/${p[1]}<td>${W(j.daily.weathercode[i])}<td>${Math.round(j.daily.temperature_2m_max[i])}/${Math.round(j.daily.temperature_2m_min[i])}<td>${j.daily.precipitation_sum[i]}mm<td>${j.daily.precipitation_probability_max[i]}%`});m.innerText='OK'}catch(e){m.innerText='Err'}}</script>
+<!DOCTYPE html><title>W</title><strong>3-Day</strong><br>
+<input id=a placeholder=Lat size=5><input id=b placeholder=Lon size=5>
+<button onclick=g()>Go</button><button onclick=n()>GPS</button>
+<p id=m></p><table border=1 style="border-collapse:collapse;font-size:14px"><tbody id=o></tbody></table>
+<script>
+d=document,m=d.getElementById('m'),o=d.getElementById('o'),a=d.getElementById('a'),b=d.getElementById('b');
+// Load saved coords
+a.value=localStorage.getItem('la');b.value=localStorage.getItem('lo');
+W=c=>{s={0:'Clear',1:'Clear',2:'P.Cloud',3:'Overcast',45:'Fog',51:'Drizzle',61:'Rain',63:'Rain',71:'Snow',95:'Storm'};return s[c]||'C'+c};
+function n(){m.innerText='...';navigator.geolocation.getCurrentPosition(p=>{a.value=p.coords.latitude.toFixed(2);b.value=p.coords.longitude.toFixed(2);g()},()=>m.innerText='X')}
+async function g(){x=a.value,y=b.value;if(!x||!y)return;localStorage.setItem('la',x);localStorage.setItem('lo',y);
+try{m.innerText='...';r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${x}&longitude=${y}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,windspeed_10m_max,sunrise,sunset&timezone=auto`),j=await r.json();
+o.innerHTML='<tr><th>Date<th>Cond<th>H/L<th>Rain<th>Wind<th>Sun';j.daily.time.forEach((t,i)=>{p=t.split('-'),sr=j.daily.sunrise[i].slice(-5),ss=j.daily.sunset[i].slice(-5),r=o.insertRow();
+r.innerHTML=`<td>${p[2]}/${p[1]}<td>${W(j.daily.weathercode[i])}<td>${Math.round(j.daily.temperature_2m_max[i])}/${Math.round(j.daily.temperature_2m_min[i])}<td>${j.daily.precipitation_sum[i]}mm(${j.daily.precipitation_probability_max[i]}%)<td>${Math.round(j.daily.windspeed_10m_max[i])}k<td>${sr}-${ss}`});m.innerText='OK'}catch(e){m.innerText='Err'}}
+</script>
